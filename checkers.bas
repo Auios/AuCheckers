@@ -10,12 +10,14 @@ using fb,auios
 declare function AuBLoad(byref fileName as const string) as any ptr
 declare function loadBoard() as any ptr
 declare function loadCursor() as any ptr
+declare function loadBlackKing() as any ptr
+declare function loadWhiteKing() as any ptr
 declare function controller(byref e as event) as integer
 declare function render() as integer
 declare function restartGame() as integer
 
 dim shared as AuWindow wnd
-dim shared as any ptr board,cursor
+dim shared as any ptr board,cursor,blackKingImg,whiteKingImg
 
 dim shared as boolean runApp
 dim as event e
@@ -33,15 +35,15 @@ end enum
 runApp = true
 
 printf(!"Create: wnd\n")
-
 wnd.set(800,600,,,,"Checkers")
 wnd.create()
 
-printf(!"Create: board\n")
 board = imageCreate(512,512)
 board = loadBoard()
 
-printf(!"Create: cursor\n")
+blackKingImg = loadBlackKing()
+whiteKingImg = loadWhiteKing()
+
 cursor = imageCreate(64,64)
 cursor = loadCursor()
 
@@ -57,6 +59,12 @@ loop until runApp = false
 '===Cleanup===
 printf(!"Destroy: board\n")
 imageDestroy(board)
+
+printf(!"Destroy: blackKingImg\n")
+imageDestroy(blackKingImg)
+
+printf(!"Destroy: whiteKingImg\n")
+imageDestroy(whiteKingImg)
 
 printf(!"Destroy: cursor\n")
 imageDestroy(cursor)
@@ -92,8 +100,53 @@ function AuBLoad(byref fileName as const string) as any ptr
     return img
 end function
 
+function loadBlackKing() as any ptr
+    printf(!"Create: cursor\n")
+    
+    dim as any ptr blackKingImg = imageCreate(64,64)
+    dim as integer checkerSz,offset
+    
+    checkerSz = 24
+    offset = 32
+    
+    line(0,0)-(64-1,64-1),rgb(255,0,255),bf
+    circle(offset,offset),checkerSz,rgb(50,50,50),,,,f
+    circle(offset,offset),checkerSz/3,rgb(255,255,100),,,,f
+    circle(offset,offset),checkerSz/3,rgb(255,255,255)
+    circle(offset,offset),checkerSz,rgb(255,255,255)
+    
+    get(0,0)-(64-1,64-1),blackKingImg
+    
+    return blackKingImg
+end function
+
+function loadWhiteKing() as any ptr
+    printf(!"Create: cursor\n")
+    
+    dim as any ptr whiteKingImg = imageCreate(64,64)
+    dim as integer checkerSz,offset
+    
+    checkerSz = 24
+    offset = 32
+    
+    line(0,0)-(64-1,64-1),rgb(255,0,255),bf
+    circle(offset,offset),checkerSz,rgb(210,210,210),,,,f
+    for i as single = checkerSz/1.6 to checkerSz/1.2 step 1
+        circle(offset,offset),i,rgb(240,240,100)
+    next i
+    circle(offset,offset),checkerSz/1.6,rgb(0,0,0)
+    circle(offset,offset),checkerSz/1.2,rgb(0,0,0)
+    circle(offset,offset),checkerSz,rgb(0,0,0)
+    
+    get(0,0)-(64-1,64-1),whiteKingImg
+    
+    return whiteKingImg
+end function
+
 function loadBoard() as any ptr
-    dim as any ptr blackTile,whiteTile,board
+    printf(!"Create: board\n")
+    
+    dim as any ptr blackTile,whiteTile,board,blackKingImg,whiteKingImg
     dim as ushort imgSz,boardSz
     dim as ubyte switch
     dim as string fileNameBlackTile,fileNameWhiteTile
@@ -128,36 +181,17 @@ function loadBoard() as any ptr
     imageDestroy(blackTile)
     printf(!"Destroy media: '%s'\n",fileNameWhiteTile)
     imageDestroy(whiteTile)
+    printf(!"Destroy media: blackKing\n")
+    imageDestroy(whiteKingImg)
+    printf(!"Destroy media: whiteKing\n")
+    imageDestroy(blackKingImg)
     
     return board
 end function
 
-function restartGame() as integer
-    printf(!"Game restart!\n")
-    dim as ubyte switch
-    
-    switch = 1
-    
-    for yy as integer = 0 to 2
-        for xx as integer = 0 to 7
-            if(switch) then tile(xx,yy) = white
-            switch = switch xor 1
-        next xx
-        switch = switch xor 1
-    next yy
-    
-    for yy as integer = 5 to 7
-        for xx as integer = 0 to 7
-            if(switch) then tile(xx,yy) = black
-            switch = switch xor 1
-        next xx
-        switch = switch xor 1
-    next yy
-    
-    return 0
-end function
-
 function loadCursor() as any ptr
+    printf(!"Create: cursor\n")
+    
     dim as any ptr cursor
     dim as ushort imgSz
     
@@ -173,11 +207,37 @@ function loadCursor() as any ptr
     return cursor
 end function
 
+function restartGame() as integer
+    printf(!"Game restart!\n")
+    dim as ubyte switch
+    
+    switch = 1
+    
+    for yy as integer = 0 to 2
+        for xx as integer = 0 to 7
+            if(switch) then tile(xx,yy) = whiteKing
+            switch = switch xor 1
+        next xx
+        switch = switch xor 1
+    next yy
+    
+    for yy as integer = 5 to 7
+        for xx as integer = 0 to 7
+            if(switch) then tile(xx,yy) = blackKing
+            switch = switch xor 1
+        next xx
+        switch = switch xor 1
+    next yy
+    
+    return 0
+end function
+
 function render() as integer
     
-    dim as integer checkerSz
+    dim as integer checkerSz,offset
     
     checkerSz = 24
+    offset = 32
     
     screenlock
         cls
@@ -186,12 +246,22 @@ function render() as integer
         for yy as integer = 0 to 7
             for xx as integer = 0 to 7
                 select case tile(xx,yy)
-                case white
-                    circle(xx*64+31,yy*64+31),checkerSz,rgb(220,220,220),,,,f
+                case black
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(50,50,50),,,,f
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(0,0,0)
                     exit select
                     
-                case black
-                    circle(xx*64+31,yy*64+31),checkerSz,rgb(50,50,50),,,,f
+                case blackKing
+                    put(xx*64,yy*64),blackKingImg,trans
+                    exit select
+                    
+                case white
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(220,220,220),,,,f
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(0,0,0)
+                    exit select
+                    
+                case whiteKing
+                    put(xx*64,yy*64),whiteKingImg,trans
                     exit select
                 end select
             next xx
