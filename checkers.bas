@@ -215,7 +215,7 @@ function restartGame() as integer
     
     for yy as integer = 0 to 2
         for xx as integer = 0 to 7
-            if(switch) then tile(xx,yy) = whiteKing
+            if(switch) then tile(xx,yy) = white
             switch = switch xor 1
         next xx
         switch = switch xor 1
@@ -223,7 +223,7 @@ function restartGame() as integer
     
     for yy as integer = 5 to 7
         for xx as integer = 0 to 7
-            if(switch) then tile(xx,yy) = blackKing
+            if(switch) then tile(xx,yy) = black
             switch = switch xor 1
         next xx
         switch = switch xor 1
