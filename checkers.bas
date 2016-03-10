@@ -25,7 +25,9 @@ dim shared as ubyte tile(0 to 7,0 to 7)
 enum
     empty
     black
+    blackKing
     white
+    whiteKing
 end enum
 
 runApp = true
@@ -131,11 +133,12 @@ function loadBoard() as any ptr
 end function
 
 function restartGame() as integer
+    printf(!"Game restart!\n")
     dim as ubyte switch
     
     switch = 1
     
-    for yy as integer = 0 to 1
+    for yy as integer = 0 to 2
         for xx as integer = 0 to 7
             if(switch) then tile(xx,yy) = white
             switch = switch xor 1
@@ -143,7 +146,7 @@ function restartGame() as integer
         switch = switch xor 1
     next yy
     
-    for yy as integer = 6 to 7
+    for yy as integer = 5 to 7
         for xx as integer = 0 to 7
             if(switch) then tile(xx,yy) = black
             switch = switch xor 1
@@ -184,11 +187,11 @@ function render() as integer
             for xx as integer = 0 to 7
                 select case tile(xx,yy)
                 case white
-                    circle(xx*64+31,yy*64+31),checkerSz,rgb(50,50,50),,,,f
+                    circle(xx*64+31,yy*64+31),checkerSz,rgb(220,220,220),,,,f
                     exit select
                     
                 case black
-                    circle(xx*64+31,yy*64+31),checkerSz,rgb(220,220,220),,,,f
+                    circle(xx*64+31,yy*64+31),checkerSz,rgb(50,50,50),,,,f
                     exit select
                 end select
             next xx
