@@ -10,19 +10,22 @@ using fb,auios
 declare function AuBLoad(byref fileName as const string) as any ptr
 declare function loadBoard() as any ptr
 declare function loadCursor() as any ptr
+declare function loadCursorSel() as any ptr
 declare function loadBlackKing() as any ptr
 declare function loadWhiteKing() as any ptr
 declare function controller(byref e as event) as integer
 declare function render() as integer
 declare function restartGame() as integer
+declare function unselectTile() as integer
 
 dim shared as AuWindow wnd
-dim shared as any ptr board,cursor,blackKingImg,whiteKingImg
+dim shared as any ptr board,cursor,cursorSel,blackKingImg,whiteKingImg
 
 dim shared as boolean runApp
 dim as event e
-dim shared as ushort curX,curY
+dim shared as ushort curX,curY,curSelX,curSelY,playerTurn
 dim shared as ubyte tile(0 to 7,0 to 7)
+dim shared as ubyte tileSel(0 to 7,0 to 7)
 
 enum
     empty
@@ -30,6 +33,11 @@ enum
     blackKing
     white
     whiteKing
+end enum
+
+enum
+    playerOne
+    playerTwo
 end enum
 
 runApp = true
@@ -46,6 +54,7 @@ whiteKingImg = loadWhiteKing()
 
 cursor = imageCreate(64,64)
 cursor = loadCursor()
+cursorSel = loadCursorSel()
 
 restartGame()
 
@@ -66,6 +75,9 @@ imageDestroy(blackKingImg)
 printf(!"Destroy: whiteKingImg\n")
 imageDestroy(whiteKingImg)
 
+printf(!"Destroy: cursorSel\n")
+imageDestroy(cursorSel)
+
 printf(!"Destroy: cursor\n")
 imageDestroy(cursor)
 
@@ -75,6 +87,125 @@ wnd.destroy()
 end 0
 
 '============================================
+
+function controller(byref e as event) as integer
+    if(screenEvent(@e)) then
+        select case e.type
+        case event_key_press
+            select case e.scancode
+            case SC_ESCAPE
+                runApp = false
+                exit select
+                
+            #if(USE_WASD = 1)
+            case SC_W
+                if curY > 0 then curY-=1
+                exit select
+            case SC_S
+                if curY < 7 then curY+=1
+                exit select
+            case SC_A
+                if curX > 0 then curX-=1
+                exit select
+            case SC_D
+                if curX < 7 then curX+=1
+                exit select
+            #endif
+            end select
+            
+        case event_window_close
+            runApp = false
+            exit select
+            
+        case event_mouse_button_press
+            select case e.button
+            case button_left
+                if(tile(curX,curY) <> empty) then
+                    tileSel(curSelX,curSelY) = 0
+                    tileSel(curX,curY) = 1
+                    curSelX = curX
+                    curSelY = curY
+                else
+                    unselectTile()
+                end if
+                exit select
+                
+            case button_right
+                unselectTile()
+                exit select
+                
+            end select
+            
+        #if(USE_MOUSE = 1)
+        case event_mouse_move
+            for yy as integer = 0 to 7
+                for xx as integer = 0 to 7
+                    if(e.x > xx*64 AND e.x < xx*64+63) then
+                        if(e.y > yy*64 AND e.y < yy*64+63) then
+                            curX = xx
+                            curY = yy
+                        end if
+                    end if
+                next xx
+            next yy
+            exit select
+        #endif
+        end select
+    end if
+    
+    return 0
+end function
+
+function render() as integer
+    
+    dim as integer checkerSz,offset
+    
+    checkerSz = 24
+    offset = 32
+    
+    screenlock
+        cls
+        
+        'Board
+        put(0,0),board
+        
+        'Hover cursor
+        put(curX*64,curY*64),cursor,trans
+        
+        'Checkers
+        for yy as integer = 0 to 7
+            for xx as integer = 0 to 7
+                select case tile(xx,yy)
+                case black
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(50,50,50),,,,f
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(0,0,0)
+                    exit select
+                    
+                case blackKing
+                    put(xx*64,yy*64),blackKingImg,trans
+                    exit select
+                    
+                case white
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(220,220,220),,,,f
+                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(0,0,0)
+                    exit select
+                    
+                case whiteKing
+                    put(xx*64,yy*64),whiteKingImg,trans
+                    exit select
+                end select
+                
+                'Selection cursor
+                if(tileSel(xx,yy) = 1) then put(curSelX*64,curSelY*64),cursorSel,trans
+            next xx
+        next yy
+        
+        'Debug
+        draw string(600,20),"Tile: " & tile(curX,curY)
+    screenunlock
+    
+    return 0
+end function
 
 function AuBLoad(byref fileName as const string) as any ptr
     printf(!"Load media: '%s'\n",fileName)
@@ -101,7 +232,7 @@ function AuBLoad(byref fileName as const string) as any ptr
 end function
 
 function loadBlackKing() as any ptr
-    printf(!"Create: cursor\n")
+    printf(!"Create: blackKing\n")
     
     dim as any ptr blackKingImg = imageCreate(64,64)
     dim as integer checkerSz,offset
@@ -121,7 +252,7 @@ function loadBlackKing() as any ptr
 end function
 
 function loadWhiteKing() as any ptr
-    printf(!"Create: cursor\n")
+    printf(!"Create: whiteKing\n")
     
     dim as any ptr whiteKingImg = imageCreate(64,64)
     dim as integer checkerSz,offset
@@ -207,11 +338,30 @@ function loadCursor() as any ptr
     return cursor
 end function
 
+function loadCursorSel() as any ptr
+    printf(!"Create: cursorSel\n")
+    
+    dim as any ptr cursorSel
+    dim as ushort imgSz
+    
+    imgSz = 64
+    cursorSel = imageCreate(imgSz,imgSz)
+    
+    line(0,0)-(imgSz-1,imgSz-1),rgb(255,0,255),bf
+    line(0,0)-(imgSz-1,imgSz-1),rgb(120,200,255),b
+    line(1,1)-(imgSz-2,imgSz-2),rgb(120,200,255),b
+    
+    get(0,0)-(imgSz-1,imgSz-1),cursorSel
+    
+    return cursorSel
+end function
+
 function restartGame() as integer
     printf(!"Game restart!\n")
     dim as ubyte switch
     
     switch = 1
+    playerTurn = playerOne
     
     for yy as integer = 0 to 2
         for xx as integer = 0 to 7
@@ -232,99 +382,7 @@ function restartGame() as integer
     return 0
 end function
 
-function render() as integer
-    
-    dim as integer checkerSz,offset
-    
-    checkerSz = 24
-    offset = 32
-    
-    screenlock
-        cls
-        put(0,0),board
-        
-        for yy as integer = 0 to 7
-            for xx as integer = 0 to 7
-                select case tile(xx,yy)
-                case black
-                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(50,50,50),,,,f
-                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(0,0,0)
-                    exit select
-                    
-                case blackKing
-                    put(xx*64,yy*64),blackKingImg,trans
-                    exit select
-                    
-                case white
-                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(220,220,220),,,,f
-                    circle(xx*64+31,yy*64+offset),checkerSz,rgb(0,0,0)
-                    exit select
-                    
-                case whiteKing
-                    put(xx*64,yy*64),whiteKingImg,trans
-                    exit select
-                end select
-            next xx
-        next yy
-        
-        put(curX*64,curY*64),cursor,trans
-        draw string(600,20),"Tile: " & tile(curX,curY)
-    screenunlock
-    
-    return 0
-end function
-
-function controller(byref e as event) as integer
-    if(screenEvent(@e)) then
-        select case e.type
-        case event_key_press
-            select case e.scancode
-            case SC_ESCAPE
-                runApp = false
-                exit select
-                
-            #if(USE_WASD = 1)
-            case SC_W
-                if curY > 0 then curY-=1
-                exit select
-            case SC_S
-                if curY < 7 then curY+=1
-                exit select
-            case SC_A
-                if curX > 0 then curX-=1
-                exit select
-            case SC_D
-                if curX < 7 then curX+=1
-                exit select
-            #endif
-            end select
-            
-        case event_window_close
-            runApp = false
-            
-        case event_mouse_button_press
-            select case e.button
-            case button_left
-                exit select
-                
-            end select
-            
-        #if(USE_MOUSE = 1)
-        case event_mouse_move
-            for yy as integer = 0 to 7
-                for xx as integer = 0 to 7
-                    if(e.x > xx*64 AND e.x < xx*64+63) then
-                        if(e.y > yy*64 AND e.y < yy*64+63) then
-                            curX = xx
-                            curY = yy
-                        end if
-                    end if
-                next xx
-            next yy
-            exit select
-        #endif
-        end select
-    end if
-    
+function unselectTile() as integer
+    tileSel(curSelX,curSelY) = 0
     return 0
 end function
